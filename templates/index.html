@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Computadores</title>
+    <style>
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .btn { padding: 5px 10px; margin: 2px; text-decoration: none; color: white; border-radius: 3px; }
+        .btn-edit { background-color: #2196F3; }
+        .btn-delete { background-color: #f44336; }
+        .btn-new { background-color: #4CAF50; display: inline-block; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Lista de Computadores</h1>
+    <a href="{{ url_for('main.crear') }}" class="btn btn-new">Nuevo Computador</a>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>CPU</th>
+                <th>RAM (GB)</th>
+                <th>Marca</th>
+                <th>Tipo Almacenamiento</th>
+                <th>SSD (GB)</th>
+                <th>HDD (GB)</th>
+                <th>Total (GB)</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for comp in computadores %}
+            <tr>
+                <td>{{ comp.id }}</td>
+                <td>{{ comp.nombre }}</td>
+                <td>{{ comp.cpu }}</td>
+                <td>{{ comp.ram }}</td>
+                <td>{{ comp.marca }}</td>
+                <td>{{ comp.tipo_almacenamiento.value }}</td>
+                <td>{{ comp.capacidad_ssd }}</td>
+                <td>{{ comp.capacidad_hdd }}</td>
+                <td>{{ comp.almacenamiento_total }}</td>
+                <td>
+                    <a href="{{ url_for('main.editar', id=comp.id) }}" class="btn btn-edit">Editar</a>
+                    <form action="{{ url_for('main.eliminar', id=comp.id) }}" method="POST" style="display:inline;">
+                        <button type="submit" class="btn btn-delete" onclick="return confirm('¿Eliminar?')">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
