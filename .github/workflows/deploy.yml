@@ -1,0 +1,45 @@
+name: Deploy a EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sincronizar archivos a EC2
+        run: |
+          rsync -az --delete \
+            --exclude '.git/' \
+            --exclude '.venv/' \
+            --exclude '__pycache__/' \
+            --exclude 'instance/' \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            ./ "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:cloud-native/"
+
+      - name: Instalar dependencias y reiniciar servicio
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
+            'SKIP_OS_UPDATE=1 APP_DIR=$HOME/cloud-native bash $HOME/cloud-native/deploy.sh'
+
+      - name: Verificar API en la nube
+        run: |
+          curl -sf "http://${{ secrets.EC2_HOST }}:8000/api/computadores"
+          echo
+          curl -sf -o /dev/null -w "Frontend HTTP %{http_code}\n" "http://${{ secrets.EC2_HOST }}:8000/"

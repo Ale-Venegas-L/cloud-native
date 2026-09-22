@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Computadores</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+  <nav class="navbar navbar-expand-lg bg-body-secondary mb-4">
+    <div class="container">
+      <span class="navbar-brand fw-bold">Gestión de Computadores</span>
+      <div class="d-flex align-items-center gap-2">
+        <span id="user-info" class="navbar-text d-none"></span>
+        <button id="btn-login" class="btn btn-primary">Iniciar sesión</button>
+        <button id="btn-logout" class="btn btn-outline-danger d-none">Cerrar sesión</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container pb-5">
+    <p id="api-msg" class="alert d-none" role="alert"></p>
+
+    <!-- Registro de cuenta en el tenant (Cognito) -->
+    <section id="signup-section" class="card d-none">
+      <div class="card-body">
+        <h2 class="card-title h5">Crear cuenta</h2>
+        <p id="signup-msg" class="alert d-none" role="alert"></p>
+        <form id="signup-form" class="row g-3">
+          <div class="col-12">
+            <label for="su-email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="su-email" required>
+          </div>
+          <div class="col-12">
+            <label for="su-password" class="form-label">Contraseña</label>
+            <input type="password" class="form-control" id="su-password" required minlength="8">
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary">Registrarme</button>
+          </div>
+        </form>
+        <form id="confirm-form" class="row g-3 d-none mt-2">
+          <div class="col-12">
+            <p class="mb-0">Código de verificación enviado a <span id="su-email-shown" class="fw-bold"></span></p>
+          </div>
+          <div class="col-12">
+            <label for="su-code" class="form-label">Código</label>
+            <input type="text" class="form-control" id="su-code" required>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary">Confirmar cuenta</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- CRUD: solo accesible con JWT válido -->
+    <section id="crud-section" class="card d-none">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="card-title h5 mb-0">Computadores</h2>
+          <button id="btn-new" class="btn btn-success">+ Nuevo</button>
+        </div>
+
+        <form id="comp-form" class="row g-3 d-none border rounded p-3 mb-3 bg-body-tertiary">
+          <input type="hidden" id="comp-id">
+          <div class="col-md-6">
+            <label for="nombre" class="form-label">Nombre</label>
+            <input type="text" class="form-control" id="nombre" required>
+          </div>
+          <div class="col-md-6">
+            <label for="cpu" class="form-label">CPU</label>
+            <input type="text" class="form-control" id="cpu" required>
+          </div>
+          <div class="col-md-4">
+            <label for="ram" class="form-label">RAM (GB)</label>
+            <input type="number" class="form-control" id="ram" min="1" required>
+          </div>
+          <div class="col-md-4">
+            <label for="marca" class="form-label">Marca</label>
+            <input type="text" class="form-control" id="marca" required>
+          </div>
+          <div class="col-md-4">
+            <label for="tipo_almacenamiento" class="form-label">Tipo de almacenamiento</label>
+            <select class="form-select" id="tipo_almacenamiento" required>
+              <option value="SSD">SSD</option>
+              <option value="HDD">HDD</option>
+              <option value="HIBRIDO">Híbrido</option>
+            </select>
+          </div>
+          <div class="col-md-4" id="ssd-field">
+            <label for="capacidad_ssd" class="form-label">SSD (GB)</label>
+            <input type="number" class="form-control" id="capacidad_ssd" value="0" min="0">
+          </div>
+          <div class="col-md-4" id="hdd-field">
+            <label for="capacidad_hdd" class="form-label">HDD (GB)</label>
+            <input type="number" class="form-control" id="capacidad_hdd" value="0" min="0">
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-success">Guardar</button>
+            <button type="button" id="btn-cancel" class="btn btn-secondary">Cancelar</button>
+          </div>
+        </form>
+
+        <div class="table-responsive">
+          <table class="table table-striped table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th><th>Nombre</th><th>CPU</th><th>RAM</th><th>Marca</th>
+                <th>Tipo</th><th>SSD</th><th>HDD</th><th>Total</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
