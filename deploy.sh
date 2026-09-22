@@ -39,7 +39,28 @@ if [ ! -x "$APP_DIR/.venv/bin/python" ]; then
   python3 -m venv "$APP_DIR/.venv"
 fi
 "$APP_DIR/.venv/bin/pip" install --upgrade pip -q
-"$APP_DIR/.venv/bin/pip" install -q -r "$APP_DIR/requirements.txt"
+  "$APP_DIR/.venv/bin/pip" install -q -r "$APP_DIR/requirements.txt"
+
+echo "== Seed datos de prueba =="
+"$APP_DIR/.venv/bin/python" <<'PY'
+from app import app, db
+from model import Computador, TipoAlmacenamiento
+
+with app.app_context():
+    datos = [
+        dict(nombre='PC-01', cpu='i5-12400', ram=16, marca='Lenovo',
+             tipo_almacenamiento=TipoAlmacenamiento.SSD, capacidad_ssd=512),
+        dict(nombre='PC-02', cpu='Ryzen 5 5600', ram=32, marca='HP',
+             tipo_almacenamiento=TipoAlmacenamiento.HIBRIDO, capacidad_ssd=256, capacidad_hdd=1000),
+        dict(nombre='PC-03', cpu='i7-13700', ram=64, marca='Dell',
+             tipo_almacenamiento=TipoAlmacenamiento.HDD, capacidad_hdd=2000),
+    ]
+    for d in datos:
+        if not Computador.query.filter_by(nombre=d['nombre']).first():
+            db.session.add(Computador(**d))
+    db.session.commit()
+    print('Seed OK:', Computador.query.count(), 'computadores')
+PY
 
 echo "== Servicio systemd (gunicorn en el puerto $PORT) =="
 sudo tee /etc/systemd/system/cloud-native.service > /dev/null <<EOF

@@ -40,6 +40,14 @@ jobs:
 
       - name: Verificar API en la nube
         run: |
+          # Espera a que gunicorn acepte conexiones (max 60s)
+          for i in {1..30}; do
+            if curl -sf "http://${{ secrets.EC2_HOST }}:8000/api/computadores" >/dev/null; then
+              echo "API OK"
+              break
+            fi
+            sleep 2
+          done
+          # Frontend vía nginx HTTPS (puerto 443)
+          curl -sfk -o /dev/null -w "Frontend HTTPS %{http_code}\n" "https://${{ secrets.EC2_HOST }}/"
           curl -sf "http://${{ secrets.EC2_HOST }}:8000/api/computadores"
-          echo
-          curl -sf -o /dev/null -w "Frontend HTTP %{http_code}\n" "http://${{ secrets.EC2_HOST }}:8000/"
