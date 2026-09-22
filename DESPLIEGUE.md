@@ -7,7 +7,7 @@ Navegador (SPA) ──OIDC/PKCE──► Cognito Hosted UI ──► ID/Access t
       │
       └──HTTPS + Bearer JWT──► API Gateway (authorizer JWT: issuer + audience)
                                       │
-                                      └──HTTP :8000──► EC2 (gunicorn + Flask) ──► SQLite
+                                      └──HTTP :8000──► EC2 (nginx:443 → gunicorn:8000) ──► SQLite
 ```
 
 ---
@@ -56,28 +56,47 @@ Edita `terraform/terraform.tfvars`:
 |---|---|
 | `ssh_public_key` | Contenido de `~/.ssh/id_ed25519.pub` |
 | `ssh_cidr` | `"0.0.0.0/0"` o restringe a tu IP `x.x.x.x/32` |
-| `cognito_domain_prefix` | Prefijo **globalmente único**, ej. `cloud-native-juan-123` |
+| `cognito_domain_prefix` | Prefijo base **único**, ej. `cloud-native-juan-123` (se le añade sufijo aleatorio) |
 | `repo_url` | URL pública del repo GitHub (vacío si es privado) |
 | `test_user_email` | Email de usuario de prueba, ej. `estudiante@duoc.cl` |
+| `frontend_base_url` | **Placeholder HTTPS** al DNS de la EC2, ej. `https://ec2-XX-XX-XX-XX.compute-1.amazonaws.com` |
 
 ---
 
-## 3. Levantar la infraestructura
+## 3. Levantar la infraestructura (dos fases)
 
+### 3.1 Primer apply — crea EC2 con nginx TLS + EIP + Cognito + API GW
 ```bash
 terraform -chdir=terraform init
 terraform -chdir=terraform plan
 terraform -chdir=terraform apply
 ```
-
-Crea: **EC2 t2.micro + EIP + Security Group (22, 8000)**, **CloudFront (HTTPS) → EC2:8000**, **Cognito user pool + app client (flujo `code`) + dominio Hosted UI + usuario de prueba**, **HTTP API con authorizer JWT y CORS (origen CloudFront)**.
+- EC2 t2.micro con **nginx en puerto 443** (certificado autofirmado) → gunicorn:8000
+- EIP asociada
+- Cognito user pool + app client (flujo `code`) + dominio Hosted UI único
+- HTTP API con authorizer JWT (issuer + audience) + CORS al `frontend_base_url`
 
 Usuario de prueba (si definiste `test_user_email`): email indicado, contraseña `Admin1234`.
 
-Guarda los outputs:
-
+### 3.2 Obtén el DNS real de la EC2
 ```bash
-terraform -chdir=terraform output          # todos
+terraform -chdir=terraform output -raw ec2_public_dns
+# ej: ec2-100-30-148-75.compute-1.amazonaws.com
+```
+
+### 3.3 Actualiza `frontend_base_url` en `terraform.tfvars` con ese DNS
+```hcl
+frontend_base_url = "https://ec2-100-30-148-75.compute-1.amazonaws.com"
+```
+
+### 3.4 Segundo apply — sincroniza callbacks Cognito + CORS API GW
+```bash
+terraform -chdir=terraform apply
+```
+Solo modifica `aws_cognito_user_pool_client` y `aws_apigatewayv2_api` (rápido).
+
+Guarda los outputs finales:
+```bash
 terraform -chdir=terraform output -raw config_js
 ```
 
@@ -94,12 +113,12 @@ window.APP_CONFIG = {
   clientId: '...',
   hostedUiDomain: '...',
   apiGatewayUrl: '...',
-  redirectUri: 'https://dXXXXXXXXXXXXX.cloudfront.net/',  // dominio CloudFront
+  redirectUri: 'https://ec2-100-30-148-75.compute-1.amazonaws.com/',
   scopes: ['openid', 'email', 'profile'],
 };
 ```
 
-Los callback/logout URLs en Cognito ya los creó Terraform con el dominio CloudFront (HTTPS, requerido por Cognito); si cambias la distribución, vuelve a aplicar Terraform.
+> **Importante:** El certificado es autofirmado. Al abrir la URL en el navegador saldrá aviso de seguridad → *Advanced → Proceed (unsafe)*. El flujo OIDC PKCE funciona correctamente pese a la advertencia.
 
 ---
 
@@ -146,13 +165,13 @@ ssh -i ~/.ssh/id_ed25519 ec2-user@<IP> 'APP_DIR=$HOME/cloud-native bash deploy.s
 
 ```bash
 API=https://xxxxxxxx.execute-api.us-east-1.amazonaws.com
-CF=https://dXXXXXXXXXXXXX.cloudfront.net
+FE=https://ec2-100-30-148-75.compute-1.amazonaws.com
 
 # Sin token → 401 (rechazado por el authorizer)
 curl -i $API/api/computadores
 
 # Sin token directo al backend (demuestra que la ruta protegida es la del API Manager)
-curl -i $CF/api/computadores
+curl -i $FE/api/computadores
 ```
 
 ### 7.2 JWT válido → 200; inválido → 401/403
@@ -199,13 +218,13 @@ En la SPA sin sesión: **Crear cuenta** → email + contraseña → código de v
 
 ### 7.5 Frontend y backend desplegados y activos
 
-- Frontend: `https://dXXXXXXXXXXXXX.cloudfront.net/` responde 200 (Bootstrap + HTTPS).
+- Frontend: `https://ec2-100-30-148-75.compute-1.amazonaws.com/` responde 200 (Bootstrap + HTTPS con cert autofirmado).
 - Backend: `ssh` a EC2 → `systemctl status cloud-native` (active/running).
 - Integra: CRUD completo desde la SPA siempre pasa por el API Gateway (ver pestaña Network: llamadas a `execute-api...`).
 
 ### 7.6 CORS en el API Manager
 
-Desde el navegador (SPA en CloudFront), las llamadas a `execute-api` responden con cabeceras `access-control-allow-origin` del origen permitido (dominio CloudFront). En Terraform está en `aws_apigatewayv2_api.this.cors_configuration` (origen exacto CloudFront, sin `*`).
+Desde el navegador (SPA en HTTPS EC2), las llamadas a `execute-api` responden con cabeceras `access-control-allow-origin` del origen permitido (DNS de la EC2). En Terraform está en `aws_apigatewayv2_api.this.cors_configuration` (origen exacto, sin `*`).
 
 ---
 
@@ -219,7 +238,7 @@ sudo journalctl -u cloud-native -f
 
 # Terraform
 terraform -chdir=terraform output -raw api_gateway_url
-terraform -chdir=terraform output -raw cloudfront_domain
+terraform -chdir=terraform output -raw ec2_public_dns
 terraform -chdir=terraform destroy    # al cerrar el laboratorio (evita cargos)
 
 # Re-desplegar código tras cambios
@@ -234,7 +253,8 @@ git push origin main
 |---|---|
 | Workflow falla en SSH | Secret `EC2_SSH_KEY` mal pegado o `EC2_HOST` incorrecto |
 | 401 con token bueno | `audience`/`issuer` del authorizer ≠ app client / user pool |
-| Error `redirect_uri` en login | IP elástica cambió → reaplicar Terraform o corregir callback en Cognito |
+| Error `redirect_uri` en login | `frontend_base_url` en tfvars ≠ DNS real de la EC2 |
 | Cognito `InvalidOAuthParameter` | Revisa `hostedUiDomain`, `clientId` y scopes en `config.js` |
 | `venv` falla en EC2 | `deploy.sh` reintenta instalando paquetes (requiere sudo sin password, default en AMI) |
+| Certificado autofirmado | Navegador avisa → *Advanced → Proceed*. El flujo OIDC funciona. |
 | Credenciales Terraform expiradas | Cierra/reabre el laboratorio y vuelve a `aws configure` |
