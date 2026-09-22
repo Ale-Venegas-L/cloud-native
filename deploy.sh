@@ -42,6 +42,7 @@ fi
   "$APP_DIR/.venv/bin/pip" install -q -r "$APP_DIR/requirements.txt"
 
 echo "== Seed datos de prueba =="
+cd "$APP_DIR"
 "$APP_DIR/.venv/bin/python" <<'PY'
 from app import app, db
 from model import Computador, TipoAlmacenamiento
