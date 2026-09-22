@@ -1,3 +1,5 @@
+from typing import Optional, Tuple
+
 from flask import Blueprint, jsonify, request
 from model import db, Computador, TipoAlmacenamiento
 
@@ -19,7 +21,7 @@ def to_dict(comp: Computador) -> dict:
     }
 
 
-def parse_body(data: dict, instance: Computador | None = None) -> tuple[Computador | None, str | None]:
+def parse_body(data: dict, instance: Optional[Computador] = None) -> Tuple[Optional[Computador], Optional[str]]:
     required = ['nombre', 'cpu', 'ram', 'marca', 'tipo_almacenamiento']
     for field in required:
         if field not in data:
